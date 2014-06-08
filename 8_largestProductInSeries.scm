@@ -1,50 +1,65 @@
+#!/usr/bin/env guile
+!#
 ;; Taking a filename in as an argument, it reads in a file and then finds the 
 ;; largest product of 5 consecutive digits
 ;; Jeremy Steward
 ;; 2013-11-09
 (import (srfi srfi-1))
 
-;; Reads in a file and turns it into a list of characters
-(define (read-characters-into-list filePort)
-  (define (iter f L) 
-	(let ([x (read-char f)])
-	  (if (eof-object? x) 
-		  L
-		  (iter f (append L (list x))))))
-  (iter filePort '()))
+;; Reads a file into a list, using the function func to act as a 'read'
+;; function for the data. 
+;; This function takes one argument 'func' and returns a function that takes 
+;; as an argument an input port which it will then use func to read into a 
+;; list. 
+(define (read-into-list func)
+  (lambda (input-port)
+    (let iter ([f input-port]
+               [lst '()])
+      (let ([x (func f)])
+        (if (eof-object? x)
+          (reverse lst)
+          (iter f (cons x lst)))))))
 
-;; Reads in a file by whitespace and turns it into a list of whatever type is 
-;; read in (e.g. a number between whitespace will be a number, while a string will 
-;; be read in as a string of characters, and characters will be read in as individual
-;; characters. 
-;; It is important to note that whitespace (including newline!!!) and the like is
-;; completely ignored, unlike the previous function where newline characters are read 
-;; in individually as well
-(define (read-file-into-list filePort)
-  (define (iter f L)
-	(let ([x (read f)])
-	  (if (eof-object? x)
-		  L
-		  (iter f (append L (list x))))))
-  (iter filePort '()))
+;; Uses read-char function to read characters into a list
+(define read-chars-into-list
+  (read-into-list read-char))
 
 ;; Defines a function that will convert a list of characters into a series of numbers
-(define (list-chars->numbers L)
+(define (char-list->numbers lst)
   (map string->number 
-	   (map string 
-			(filter (lambda (x) (not (eq? x #\newline))) L))))
+       (map string 
+            (filter (lambda (x) (not (eq? x #\newline))) 
+                    lst))))
 
-;; Finds the greatest product of 5 consecutive numbers in inputFile
-(define (greatest-product inputFile)
-  (define (select-n-elements-from-list n L)
-	(if (or (> n (length L)) (eq? n 0))
-	    '()
-		(cons (car L) (select-n-elements-from-list (- n 1) (cdr L)))))
-  (define (iter prod numList)
-	(if (null? (cddddr numList))
-	    prod
-		(let ([temp (fold * 1 (select-n-elements-from-list 5 numList))])
-		  (if (< prod temp)
-			  (iter temp (cdr numList))
-			  (iter prod (cdr numList))))))
-  (iter 0 (list-chars->numbers (call-with-input-file inputFile read-characters-into-list))))
+;; This is a function that returns up to the first n elements of the list lst.
+;; If n is greater than the length of lst, then it just returns lst.
+;;
+;; n must be a number greater than or equal to 0 (i.e. positive number). If n 
+;; is a negative number, #f is returned. 
+;; lst must be a list, not a pair.
+(define (first-n-elements n lst) 
+  (if (< n 0) 
+    #f
+    (let iter ([new-list '()]
+               [old-list lst]
+               [m 0])
+      (if (or (eq? m n)
+              (null? old-list))
+        (reverse new-list)
+        (iter (cons (car old-list) new-list) 
+              (cdr old-list)
+              (+ m 1))))))
+
+;; Finds the greatest product of n consecutive numbers in a file which lists
+;; consecutive numbers. (See 8_input.txt as an example)
+(define (greatest-product-of-n-numbers n filename) 
+  (let iter ([prod 0]
+             [list-of-nums (char-list->numbers
+                             (call-with-input-file filename 
+                                                   read-chars-into-list))])
+    (if (null? (cddddr list-of-nums))
+      prod
+      (let ([temp (fold * 1 (first-n-elements n list-of-nums))])
+        (if  (< prod temp)
+          (iter temp (cdr list-of-nums))
+          (iter prod (cdr list-of-nums)))))))

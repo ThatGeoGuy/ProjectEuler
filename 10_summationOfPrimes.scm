@@ -1,28 +1,31 @@
+#!/usr/bin/env guile
+!#
 ;; Calculates the sum of all primes below some number n
 ;; Jeremy Steward
 ;; 2013-11-09
 (import (srfi srfi-1))
+ 
+;; Determines if a is evenly divisible by b. If a divides by b (i.e if the 
+;; remainder of (/ a b) is zero), then this function will return #t, else 
+;; it will return #f
+(define (divides-by? a b)
+  (eq? (remainder a b) 0))
 
-;; Returns a list from 'start' to 'stop' by incrementing with 'step' each time
-(define (range start stop step)
-  (define (iter i rng) 
-	(if (> i stop) 
-		rng
-		(iter (+ i step) (append rng (list i)))))
-  (iter (+ start step) (list start)))
+;; Creates a list that contains a sieve of erastothenes which consists of 
+;; all prime numbers less than m. 
+(define (sieve-for-less-than m)
+  (let iter ([sieve '(2)]
+             [n 3])
+    (if (> n m) 
+      (reverse sieve)
+      ;; We try to find the first element that is n is divisible by. If no 
+      ;; element is found within the list, then we know n must be a prime
+      ;; number.
+      (if (find (lambda (x) (divides-by? n x))
+                sieve)
+        (iter sieve (+ n 2))
+        (iter (cons n sieve) (+ n 2))))))
 
-;; Builds Sieve of Eratosthenes for all prime numbers less than 'm'
-(define (sieve-of-eratosthenes m)
-  (let ([r (range 2 m 1)])
-	(define (iter sieve n) 
-	  (if (eq? (length sieve) n)
-		  sieve
-		  (iter (filter (lambda (x) (or (eq? x (list-ref sieve n))
-										(not (eq? (remainder x (list-ref sieve n)) 0))))
-						sieve)
-				(+ n 1))))
-	(iter r 0)))
-  
 ;; Finds and sums all of the primes below n
 (define (sum-of-primes-below n)
-  (fold + 0 (sieve-of-eratosthenes n)))
+  (fold + 0 (sieve-for-less-than n)))
